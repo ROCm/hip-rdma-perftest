@@ -292,15 +292,15 @@ AC_ARG_WITH([rocm],
             [AS_CASE([$with_rocm],
                      [yes|no], [],
                      [CPPFLAGS="-I$with_rocm/include $CPPFLAGS"
-                      LDFLAGS="-L$with_rocm/lib64 -Wl,-rpath=$with_rocm/lib64 -L$with_rocm/lib -Wl,-rpath=$with_rocm/lib -lhip_hcc $LDFLAGS"])
+                      LDFLAGS="-L$with_rocm/lib64 -Wl,-rpath=$with_rocm/lib64 -L$with_rocm/lib -Wl,-rpath=$with_rocm/lib -lamdhip64 $LDFLAGS"])
             ])
 
 AS_IF([test "x$enable_rocm" = xyes], [
        AC_DEFINE([__HIP_PLATFORM_HCC__], [1], [Enable ROCm])
        AC_CHECK_HEADERS([hip/hip_runtime_api.h], [],
                         [AC_MSG_ERROR([cannot include hip/hip_runtime_api.h])])
-       AC_SEARCH_LIBS([hipFree], [hip_hcc], [],
-                      [AC_MSG_ERROR([cannot link with -lhip_hcc])])
+       AC_SEARCH_LIBS([hipFree], [amdhip64], [],
+                      [AC_MSG_ERROR([cannot link with -lamdhip64])])
        AC_DEFINE([HAVE_ROCM], [1], [Enable ROCm])
        ])
 
