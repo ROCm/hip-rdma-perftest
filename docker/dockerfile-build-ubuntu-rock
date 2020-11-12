@@ -1,0 +1,92 @@
+# Copyright (c) 2019-2020 Advanced Micro Devices, Inc. All rights reserved.
+# Parameters related to building rccl
+ARG base_image
+
+FROM ${base_image}
+LABEL maintainer="rccl-maintainer@amd.com"
+
+ARG user_uid
+
+# Set MOFED version, OS version and platform
+ENV MOFED_VER 5.0-2.1.8.0
+ENV OS_VER ubuntu18.04
+ENV PLATFORM x86_64
+
+# Install dependent packages
+# Dependencies:
+# * hcc-config.cmake: pkg-config
+# * tensile: python2.7, python-yaml
+# * rocblas-test: gfortran, googletest
+# * rocblas-bench: libboost-program-options-dev
+# * libhsakmt.so: libnuma1
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+	autoconf \
+	automake \
+	autotools-dev \
+	bison \
+	ca-certificates \
+	chrpath \
+	chrpath \
+	cmake \
+	debhelper \
+	dpatch \
+	ethtool \
+	flex \
+	gfortran \
+	git \
+	graphviz \
+	kmod \
+	libboost-program-options-dev \
+	libelf1 \
+	libgfortran3 \
+	libltdl-dev \
+	libmnl0 \
+	libnl-3-200 \
+	libnl-3-dev \
+	libnl-route-3-200 \
+	libnl-route-3-dev \
+	libnuma1 \
+	libomp-dev \
+	libtool \
+	lsof \
+	m4 \
+	make \
+	openssh-server \
+	pciutils \
+	pkg-config \
+	python-yaml \
+	python2.7 \
+	rock-dkms \
+	rocm-cmake \
+	sudo \
+	swig \
+	tcl \
+	tk \
+	udev \
+	wget \
+    && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# docker pipeline runs containers with particular uid
+# create a jenkins user with this specific uid so it can use sudo priviledges
+# Grant any member of sudo group password-less sudo privileges
+RUN useradd --create-home -u ${user_uid} -o -G sudo --shell /bin/bash jenkins && \
+    mkdir -p /etc/sudoers.d/ && \
+    echo '%sudo   ALL=(ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/sudo-nopasswd
+
+# Download and extract Mellanox OFED
+RUN wget --quiet http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VER}/MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz && \
+    tar -xvf MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz
+
+# Install Mellanox OFED
+RUN MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}/mlnxofedinstall --force --without-fw-update -q && \
+    cd .. && \
+    rm -rf ${MOFED_DIR} && \
+    rm -rf *.tgz
+
+# Allow OpenSSH to talk to containers without asking for confirmation
+RUN mkdir -p /etc/ssh && \
+    echo "    StrictHostKeyChecking no" >> /etc/ssh/ssh_config

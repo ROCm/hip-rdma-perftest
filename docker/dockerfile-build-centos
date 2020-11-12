@@ -1,0 +1,94 @@
+# Copyright (c) 2019-2020 Advanced Micro Devices, Inc. All rights reserved.
+# This Dockerfile provides a starting point for a ROCm installation of rccl
+
+# Parameters related to building rccl
+ARG base_image
+
+FROM ${base_image}
+LABEL maintainer="rccl-maintainer@amd.com"
+
+USER root
+ARG user_uid
+
+# Set MOFED version, OS version and platform
+ENV MOFED_VER 5.0-2.1.8.0
+ENV OS_VER rhel7.7
+ENV PLATFORM x86_64
+
+# Install dependent packages
+RUN yum install -y \
+    --nogpgcheck \
+    autoconf \
+    automake \
+    autotools-devel \
+    bison \
+    ca-certificates \
+    centos-release-scl \
+    chrpath \
+    cmake \
+    ethtool \
+    flex \
+    gcc-gfortran \
+    git \
+    graphviz \
+    kmod \
+    libmnl \
+    libnl3 \
+    libtool \
+    lsof \
+    m4 \
+    make \
+    numactl-libs \
+    openssh-server \
+    pciutils \
+    python-yaml \
+    rock-dkms \
+    rocm-cmake \
+    sudo \
+    swig \
+    tcl \
+    tcsh \
+    tk \
+    udev \
+    wget
+
+RUN echo '#!/bin/bash' | tee /etc/profile.d/devtoolset7.sh && echo \
+    'source scl_source enable devtoolset-7' >>/etc/profile.d/devtoolset7.sh
+
+# docker pipeline runs containers with particular uid
+# create a jenkins user with this specific uid so it can use sudo priviledges
+# Grant any member of sudo group password-less sudo privileges
+RUN useradd --create-home -u ${user_uid} -o -G video --shell /bin/bash jenkins && \
+    echo '%video ALL=(ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/sudo-nopasswd && \
+    chmod 400 /etc/sudoers.d/sudo-nopasswd
+
+# Remove packages that conflict with MOFED
+RUN yum uninstall -y \
+    libboost-mpi-python1.58-dev \
+    libboost-mpi-python-dev \
+    libboost-graph-parallel1.58.0 \
+    libopenmpi1.10 \
+    libboost-mpi1.58.0 \
+    openmpi-common \
+    libboost-graph-parallel-dev \
+    libboost-all-dev \
+    libboost-graph-parallel1.58-dev \
+    openmpi-bin \
+    libopenmpi-dev \
+    mpi-default-bin \
+    libboost-mpi-dev \
+    libboost-mpi1.58-dev \
+    mpi-default-dev \
+    libboost-mpi-python1.58.0
+
+# Download and install Mellanox OFED
+RUN wget --quiet http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VER}/MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz && \
+    tar -xvf MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}.tgz && \
+    MLNX_OFED_LINUX-${MOFED_VER}-${OS_VER}-${PLATFORM}/mlnxofedinstall --user-space-only --without-fw-update -q && \
+    cd .. && \
+    rm -rf ${MOFED_DIR} && \
+    rm -rf *.tgz
+
+# Allow OpenSSH to talk to containers without asking for confirmation
+RUN mkdir -p /etc/ssh && \
+    echo "    StrictHostKeyChecking no" >> /etc/ssh/ssh_config
